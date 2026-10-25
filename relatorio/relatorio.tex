@@ -1,0 +1,357 @@
+% =============================================================================
+% TP2 -- Fundamentos de Inteligência Artificial (UFMG)
+% Busca Local e Algoritmos Genéticos no Sequenciamento de Manutenção de Ativos
+%
+% Compilar (dentro de relatorio/):  pdflatex relatorio && pdflatex relatorio
+% Figuras e tabelas em relatorio/figuras/ são geradas, a partir da raiz, por:
+%     python scripts/experimentos_t3.py && python scripts/plot_graficos.py
+% Figuras ainda inexistentes aparecem como caixas de aviso (o .tex compila mesmo assim).
+% =============================================================================
+\documentclass[10pt,a4paper,twocolumn]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[brazilian]{babel}
+\usepackage{newtxtext,newtxmath}            % Times, como no modelo SBC
+\usepackage[a4paper,top=2.5cm,bottom=2.5cm,left=2cm,right=2cm,columnsep=0.6cm]{geometry}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{microtype}
+\usepackage[hidelinks]{hyperref}
+
+\captionsetup{font=small,labelfont=bf,labelsep=period}
+\setlength{\abovecaptionskip}{4pt}
+\setlength{\textfloatsep}{8pt plus 2pt minus 2pt}
+\setlength{\floatsep}{6pt plus 2pt minus 2pt}
+\raggedbottom
+
+% Marcador visível para trechos que ainda dependem de outro integrante.
+\newcommand{\pendente}[1]{\par\noindent\fcolorbox{orange}{orange!8}{%
+  \parbox{\dimexpr\linewidth-2\fboxsep-2\fboxrule}{\small\textbf{[Pendente]} #1}}\par}
+
+% Inclui a figura se o arquivo existir; caso contrário, desenha um aviso.
+\newcommand{\figura}[2]{\IfFileExists{#1}{\includegraphics[width=#2]{#1}}{%
+  \fbox{\parbox[c][2.5cm][c]{\dimexpr#2-2\fboxsep-2\fboxrule}{\centering\small
+  \texttt{\detokenize{#1}}\\ ainda não gerada}}}}
+\newcommand{\tabela}[1]{\IfFileExists{#1}{\input{#1}}{\pendente{\texttt{\detokenize{#1}} ainda não gerada.}}}
+
+\title{\vspace{-1.2cm}\textbf{Busca Local e Algoritmos Genéticos no\\
+  Sequenciamento de Manutenção de Ativos}}
+\author{Integrante 1\thanks{Departamento de Ciência da Computação -- UFMG.} \and
+        Integrante 2\footnotemark[1] \and Integrante 3\footnotemark[1]}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent
+Comparamos três metaheurísticas -- \textit{Greedy Descent} com reinício aleatório (GD),
+\textit{Simulated Annealing} (SA) e Algoritmo Genético (GA) -- no problema de sequenciar
+$n$ manutenções para minimizar o atraso ponderado total, em instâncias com
+$n \in \{12, 50, 150\}$. Todos os métodos recebem o mesmo orçamento de avaliações da
+função objetivo e as mesmas sementes aleatórias.
+\pendente{Integrante 3: uma frase com o resultado principal da comparação.}
+\end{abstract}
+
+% =============================================================================
+\section{Formulação do Problema e Validação (T1)}
+\label{sec:formulacao}
+% Responsável: Integrante 1
+\pendente{Integrante 1: formulação de $h(\pi)$, tensão entre proximidade ($t_{ij}$) e
+urgência ($d_j$, $w_j$) e tabela de validação T1 ($h=4366$ na identidade da instância
+pequena; $h=39$ e $h=22$ no exemplo da Figura~1 do enunciado).}
+
+Uma solução é uma permutação $\pi=(\pi_1,\dots,\pi_n)$ dos ativos, com a equipe
+partindo da base $\pi_0=0$. Os instantes de conclusão e o custo são
+\begin{gather}
+  C_k = C_{k-1} + t_{\pi_{k-1}\pi_k} + p_{\pi_k}, \notag\\
+  h(\pi) = \sum_{k=1}^{n} w_{\pi_k}\max\{0,\; C_k - d_{\pi_k}\},
+  \label{eq:h}
+\end{gather}
+com $C_0=0$ e $t_{ij}=\operatorname{round}\!\big(\lVert (x_i,y_i)-(x_j,y_j)\rVert_2\big)$.
+
+% =============================================================================
+\section{Algoritmos e Estratégias de Busca}
+\label{sec:algoritmos}
+
+\subsection{Vizinhanças e Avaliação Incremental (T2)}
+\label{sec:vizinhancas}
+% Responsável: Integrante 1
+\pendente{Integrante 1: cardinalidade de Swap ($n(n-1)/2$), Insertion ($(n-1)^2$) e
+2-opt ($n(n-1)/2$); tabela comparativa T2 e \textit{speedup} da avaliação incremental.}
+
+\subsection{Greedy Descent com Random Restart}
+\label{sec:gd}
+% Responsável: Integrante 1
+\pendente{Integrante 1: variantes Best, First e Random Improvement, mecanismo de
+reinício e análise dos ótimos locais.}
+
+% -----------------------------------------------------------------------------
+\subsection{Simulated Annealing e Calibração Térmica}
+\label{sec:sa}
+% Responsável: Integrante 2
+
+O \textit{Simulated Annealing}~\cite{kirkpatrick1983,metropolis1953} é uma busca
+local estocástica que escapa de ótimos locais ao aceitar, com probabilidade
+controlada, movimentos que pioram a solução. A cada passo sorteia-se uniformemente um par ordenado
+(origem, destino) de posições distintas, o que define um vizinho $\pi'$ da solução
+corrente $\pi$ na vizinhança Insertion, e calcula-se
+$\Delta h = h(\pi') - h(\pi)$. A transição segue o critério de Metropolis, derivado
+da distribuição de Gibbs
+$P(\pi)\propto e^{-h(\pi)/T}$:
+\begin{equation}
+  P(\pi \to \pi') =
+  \begin{cases}
+    1, & \Delta h \le 0,\\[2pt]
+    e^{-\Delta h / T}, & \Delta h > 0.
+  \end{cases}
+  \label{eq:gibbs}
+\end{equation}
+Como a proposta é simétrica (o movimento inverso tem a mesma probabilidade de
+ser sorteado), para $T$ fixo a cadeia de Markov resultante tem a distribuição de
+Gibbs como distribuição estacionária. Quando $T\to\infty$, todo vizinho é aceito
+(\textit{random walk}). Quando $T\to 0$, a massa de probabilidade se concentra nos
+mínimos de $h$, e a regra~\eqref{eq:gibbs} se reduz a uma descida gulosa
+estocástica. O resfriamento leva a busca de um regime ao outro. A
+melhor solução global $\pi^\star$ é mantida à parte, porque o estado corrente pode
+terminar pior do que algum estado já visitado.
+
+\paragraph{Calibração empírica de $T_0$.}
+A escala de $\Delta h$ depende fortemente de $n$. Os atrasos se acumulam ao longo
+da rota, de modo que reinserir um ativo desloca os instantes $C_k$ de todo o sufixo.
+Uma temperatura fixa que funcione em $n=12$ seria fria demais em $n=150$, e uma
+adequada a $n=150$ seria um \textit{random walk} em $n=12$. Por isso $T_0$ é
+calibrado em cada execução: a partir do estado inicial aleatório, sorteiam-se
+200 vizinhos, calcula-se a média $\overline{\Delta h}^{+}$ apenas dos aumentos de
+custo ($\Delta h>0$) e impõe-se que, no início, uma piora típica seja aceita com
+probabilidade $p_0=0{,}80$:
+\begin{equation}
+  e^{-\overline{\Delta h}^{+}/T_0} = p_0
+  \;\Longrightarrow\;
+  T_0 = \frac{-\overline{\Delta h}^{+}}{\ln p_0} \approx 4{,}48\,\overline{\Delta h}^{+}.
+  \label{eq:t0}
+\end{equation}
+A Tabela~\ref{tab:param-sa} mostra que $\overline{\Delta h}^{+}$ cresce cerca de
+$15\times$ entre $n=12$ e $n=150$, e $T_0$ acompanha esse crescimento sem nenhum
+ajuste manual. As 200 avaliações de calibração são debitadas do orçamento $B$.
+
+\paragraph{Esquema geométrico.}
+A temperatura decai a cada avaliação, $T_{k+1}=\alpha\,T_k$, com
+\begin{equation}
+  T_f = \rho\,T_0,\qquad \alpha = \left(\frac{T_f}{T_0}\right)^{1/L} = \rho^{1/L},
+  \label{eq:alpha}
+\end{equation}
+em que $L = B - 201$ é o número de avaliações que restam após a avaliação do estado
+inicial e a calibração. Assim, $T$ atinge $T_f$ exatamente quando o orçamento se esgota.
+Adotamos $\rho = 10^{-3}$. Em testes-piloto com 3 a 4 sementes (fora do conjunto
+oficial), fixar $T_f$ pela mesma régua de $T_0$ (isto é, $T_f=-\overline{\Delta h}^{+}/\ln p_f$
+com $p_f\in[10^{-2},10^{-4}]$) deixava o fim da busca quente demais em $n=150$
+(medianas acima de $1{,}5\times10^{5}$). Isso ocorre porque
+$\overline{\Delta h}^{+}$ é medido num estado aleatório, cujas pioras são muito maiores
+que as observadas perto de bons ótimos locais. Com $\rho=10^{-3}$, $T_f$ fica entre
+$2{,}7$ e $39{,}8$ unidades de custo (Tabela~\ref{tab:param-sa}), da ordem das
+menores pioras possíveis. Valores menores ($\rho=10^{-4}$) não
+trouxeram ganho. Também nos pilotos, Insertion superou Swap e 2-opt nas
+instâncias média e grande e foi adotada como vizinhança do SA.
+
+\begin{table}[t]
+  \centering\small
+  \caption{Parâmetros do SA calibrados por instância (mediana entre as runs) e
+  qualidade final. $\overline{\Delta h}^{+}$: piora média nos 200 vizinhos iniciais;
+  $h^\star_{\min}$ e $\tilde h^\star$: mínimo e mediana do melhor $h$ final.}
+  \label{tab:param-sa}
+  \setlength{\tabcolsep}{2.6pt}
+  \resizebox{\columnwidth}{!}{\tabela{figuras/tabela_parametros_sa.tex}}
+\end{table}
+
+\begin{figure}[t]
+  \centering
+  \figura{figuras/aceitacao_sa.pdf}{\columnwidth}
+  \caption{Fração das propostas de piora aceitas pelo SA em janelas de 1\,000
+  avaliações, em função da fração consumida do orçamento. Linha: mediana entre as
+  runs; faixa: intervalo interquartil.}
+  \label{fig:aceitacao}
+\end{figure}
+
+\paragraph{Diagnóstico térmico.}
+Em cada janela de 1\,000 avaliações registramos a razão entre as pioras aceitas e
+as pioras propostas (Figura~\ref{fig:aceitacao}). As três curvas partem de
+$\approx 0{,}80$, o que confirma a calibração~\eqref{eq:t0}, e caem de forma suave e
+praticamente monotônica: a taxa mediana passa de $0{,}5$ em $\approx 18\%$ do orçamento, de $0{,}2$ em
+$\approx 35\%$ e de $0{,}05$ entre $50\%$ e $57\%$, e fica abaixo de $1\%$ a partir de
+$\approx 66$--$75\%$. O primeiro terço da busca é, portanto, exploratório:
+a solução corrente perambula por regiões de custo alto, o que aparece como a descida
+lenta no início das curvas de convergência das instâncias média e grande
+(Figura~\ref{fig:convergencia}). O terço final
+é, na prática, uma descida gulosa estocástica que refina a bacia escolhida. O
+fato mais relevante é que as três curvas quase se sobrepõem quando o eixo
+horizontal é normalizado por $B$. A calibração por $\overline{\Delta h}^{+}$
+remove a dependência de escala, e a forma do resfriamento passa a depender
+apenas da fração do orçamento consumida, não de $n$. Não se observa nenhum dos dois
+modos de falha clássicos: nem um platô longo perto de $1$ (temperatura alta demais,
+que desperdiça orçamento em passeio aleatório) nem uma queda abrupta para $0$ no
+início (têmpera rápida demais, que congela a busca num ótimo local ruim).
+
+\subsection{Algoritmo Genético e Operadores de Permutação}
+\label{sec:ga}
+% Responsável: Integrante 3
+\pendente{Integrante 3: representação, seleção (torneio $k=3$), cruzamento OX/PMX com
+exemplo numérico passo a passo, mutação, elitismo e parâmetros ($N$, $P_c$, $P_m$).}
+
+% =============================================================================
+\section{Metodologia Experimental e Protocolo T3}
+\label{sec:metodologia}
+% Responsável: Integrante 2
+
+\begin{figure*}[t]
+  \centering
+  \figura{figuras/convergencia.pdf}{\textwidth}
+  \caption{Curvas de convergência: mediana do melhor $h$ (escala log) em função das
+  avaliações gastas, com faixa interquartil, para as três instâncias. Tracejado:
+  mediana do $h$ médio da população do GA.}
+  \label{fig:convergencia}
+\end{figure*}
+
+\paragraph{Orçamento por avaliações, não por tempo.}
+O critério de parada de todos os algoritmos é um orçamento $B$ de \emph{avaliações
+da função objetivo}. Cada chamada a $h(\cdot)$ consome exatamente uma unidade,
+seja ela uma avaliação completa da Eq.~\eqref{eq:h} ou incremental. São contadas a
+avaliação da solução inicial, as 200 avaliações de calibração do SA, cada vizinho
+examinado pelo GD (inclusive os rejeitados) e cada indivíduo avaliado pelo GA. A
+contagem é centralizada em um único objeto \texttt{Avaliador} (módulo
+\texttt{src/avaliador.py}), pelo qual passam todas as chamadas a $h$ e que levanta
+uma exceção ao se tentar ultrapassar $B$. Assim, nenhum algoritmo consegue gastar
+mais do que o orçamento.
+\pendente{Integrantes 1 e 3: confirmar que GD e GA avaliam $h$ exclusivamente
+pelo \texttt{Avaliador} (nenhuma chamada direta a \texttt{Solution}).} O orçamento por avaliações é a métrica de esforço adotada na
+comparação porque independe da máquina, da carga do sistema e da qualidade da
+implementação. Dois métodos com o mesmo $B$ examinaram o mesmo número de soluções
+candidatas. O tempo de parede (\texttt{time.perf\_counter}) é registrado à
+parte, como medida secundária. Ele capta diferenças que o orçamento esconde: nem toda
+avaliação custa o mesmo (a incremental percorre só as posições $i,\dots,n$), e as
+operações genéticas do GA têm custo próprio, que não passa por $h$. No SA, o tempo
+de parede por iteração (sorteio do vizinho, avaliação e aceitação) foi de
+$3{,}2\,\mu$s ($n=12$), $5{,}5\,\mu$s ($n=50$) e $14{,}8\,\mu$s ($n=150$). O
+crescimento é sublinear em $n$ porque parte do custo é fixo por iteração. O ganho
+da avaliação incremental, por outro lado, é modesto na nossa implementação: em
+$n=150$, uma avaliação incremental custa $13{,}4\,\mu$s, contra $15{,}3\,\mu$s da
+completa. O laço em Python percorre só o sufixo, mas as cópias dos vetores
+$C$ e $H$ ainda custam $O(n)$.
+
+\paragraph{Configurações.}
+A Tabela~\ref{tab:protocolo} resume as nove combinações (3 algoritmos $\times$ 3
+instâncias). Cada execução parte de uma permutação aleatória e grava, a cada
+500 avaliações, o melhor $h$ encontrado até ali, o que dá $B/500$ pontos por curva de
+convergência. O SA grava ainda $T$ e a taxa de aceitação de pioras a cada 1\,000
+avaliações.
+
+\begin{table}[t]
+  \centering\small
+  \caption{Protocolo T3: orçamento e número de execuções independentes por instância.}
+  \label{tab:protocolo}
+  \begin{tabular}{lrrr}
+    \toprule
+    Instância & $n$ & $B$ (avaliações) & Runs \\
+    \midrule
+    Pequena        & 12  & 50\,000  & 30 \\
+    Intermediária  & 50  & 150\,000 & 30 \\
+    Grande         & 150 & 300\,000 & 10 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\paragraph{Controle por sementes.}
+A run $r$ de qualquer algoritmo usa a semente $s_r = 20\,260\,000 + r$, e toda a
+aleatoriedade de uma execução (permutação inicial, sorteio de vizinhos, aceitação,
+operadores genéticos) vem de um único gerador \texttt{random.Random}$(s_r)$ local.
+Nenhum algoritmo usa o gerador global do módulo \texttt{random}. Com isso,
+(i)~qualquer execução é reproduzida bit a bit a partir de sua semente, e
+(ii)~os três algoritmos usam as mesmas 30 (ou 10) sementes em cada instância.
+Usar a mesma semente, porém, não torna as runs pareadas: cada algoritmo consome
+o gerador de forma diferente, de modo que GD, SA e GA na run $r$ não compartilham
+solução inicial nem trajetória. As amostras são, portanto, tratadas como
+independentes, e as comparações usam o teste de Mann--Whitney
+(Seção~\ref{sec:resultados}).
+
+\paragraph{Execução e registro.}
+As runs são executadas sequencialmente pelo orquestrador
+\texttt{scripts/experimentos\_t3.py}, em um único processo, para que o tempo de
+parede não sofra contenção de CPU. Ele grava cada
+run em \texttt{resultados\_t3.csv} imediatamente após seu término: algoritmo,
+instância, \textit{run}, semente, $h^\star$ final, tempo de parede e histórico de
+convergência. Uma interrupção não perde as runs concluídas, e uma nova chamada
+retoma das pendentes. Os parâmetros calibrados do SA e o diagnóstico de aceitação vão
+para \texttt{parametros\_sa.csv} e \texttt{diagnostico\_sa.csv}. Todas as figuras e
+tabelas deste relatório são regeneradas a partir desses arquivos por
+\texttt{scripts/plot\_graficos.py}. Os experimentos foram executados em Python~3.11.9,
+em um único núcleo de um Intel Core i7-1255U.
+
+% =============================================================================
+\section{Resultados Comparativos e Análise Estatística}
+\label{sec:resultados}
+% Responsável: Integrante 3
+
+\begin{table*}[t]
+  \centering\small
+  \caption{Resumo do melhor $h$ final por combinação algoritmo--instância, gap
+  relativo $(\bar h-1875)/1875$ na instância pequena, orçamento $B$ e tempo médio de
+  parede $\bar t$ por run.}
+  \label{tab:resultados}
+  \tabela{figuras/tabela_resultados_t3.tex}
+\end{table*}
+
+\pendente{Integrante 3: boxplots (3 painéis), $p$-valores de Mann--Whitney par a par (amostras independentes, ver Seção~\ref{sec:metodologia}),
+discussão exploração $\times$ intensificação e experimento extra do GA
+(cruzamento ligado $\times$ desligado).}
+
+\begin{figure}[t]
+  \centering
+  \figura{figuras/boxplots.pdf}{\columnwidth}
+  \caption{Distribuição do melhor $h$ final por algoritmo e instância.}
+  \label{fig:boxplots}
+\end{figure}
+
+% =============================================================================
+\section{Discussão: Escala, Esforço Computacional e Conclusões}
+\label{sec:discussao}
+
+\paragraph{Efeito da escala no SA.}
+Na instância pequena, o SA atinge o ótimo conhecido $h=1\,875$ em todas as 30 runs, em
+mediana após $\approx 21$ mil avaliações ($43\%$ de $B$). O restante do orçamento é
+gasto sem melhoria. Nas instâncias média e grande, ao contrário, a curva mediana só
+entra a $5\%$ do valor final após $74\%$ e $88\%$ do orçamento, respectivamente, e
+a dispersão entre runs cresce: o desvio-padrão relativo vai de $0$ para $4\%$
+($n=50$) e $4{,}5\%$ ($n=150$). Isso é coerente com o crescimento do espaço de busca
+($n!$) e da vizinhança Insertion ($(n-1)^2 = 22\,201$ vizinhos em $n=150$). Com
+$B=300\,000$, o SA examina o equivalente a apenas $\approx 13$ varreduras completas
+da vizinhança, e a curva mediana ainda desce quando o orçamento acaba. Isso sugere que, em
+$n=150$, o fator limitante é o orçamento, e não o esquema de temperatura.
+
+\pendente{Integrantes 1 e 3: comparação de escala entre GD, SA e GA, custo por
+avaliação $\times$ tempo de parede dos três métodos, quando o GA compensa e
+conclusões gerais.}
+
+% =============================================================================
+\begin{thebibliography}{9}\small
+\bibitem{kirkpatrick1983}
+S.~Kirkpatrick, C.~D. Gelatt e M.~P. Vecchi.
+\newblock Optimization by simulated annealing.
+\newblock \emph{Science}, 220(4598):671--680, 1983.
+
+\bibitem{metropolis1953}
+N.~Metropolis, A.~W. Rosenbluth, M.~N. Rosenbluth, A.~H. Teller e E.~Teller.
+\newblock Equation of state calculations by fast computing machines.
+\newblock \emph{The Journal of Chemical Physics}, 21(6):1087--1092, 1953.
+
+\bibitem{russell2021}
+S.~Russell e P.~Norvig.
+\newblock \emph{Artificial Intelligence: A Modern Approach}.
+\newblock 4.\,ed., Pearson, 2021.
+\end{thebibliography}
+
+\end{document}
