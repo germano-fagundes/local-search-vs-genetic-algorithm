@@ -1,5 +1,11 @@
+import sys
 import time
 import random
+from pathlib import Path
+
+RAIZ = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(RAIZ / "src"))
+
 from repair_problem import RepairProblem
 from solution import Solution
 from neighborhood_operators import Neighborhoods
@@ -7,7 +13,7 @@ from neighborhood_operators import Neighborhoods
 def test_incremental_evaluation():
     # load small instance for testing
     try:
-        instance = RepairProblem("manutencao_pequena.txt")
+        instance = RepairProblem(str(RAIZ / "instancias" / "manutencao_pequena.txt"))
     except FileNotFoundError:
         print("File 'manutencao_pequena.txt' not found. Aborting.")
         return
