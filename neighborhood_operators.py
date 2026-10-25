@@ -25,7 +25,8 @@ class Neighborhoods:
 
         new_pi[p1], new_pi[p2] = new_pi[p2], new_pi[p1]
 
-        return new_pi
+        evaluation_start = min(p1, p2)
+        return new_pi, evaluation_start
 
     @classmethod
     def insertion(cls, pi: list[int], active: int | None=None, position: int | None=None):
@@ -35,7 +36,8 @@ class Neighborhoods:
         value = new_pi.pop(active)
         new_pi.insert(position, value)
 
-        return new_pi
+        evaluation_start = min(active, position)
+        return new_pi, evaluation_start
 
     @classmethod
     def two_opt(cls, pi: list[int], begin: int | None=None, end: int | None=None):
@@ -47,5 +49,6 @@ class Neighborhoods:
         new_pi = pi[:]
 
         new_pi[begin:end+1] = reversed(new_pi[begin:end+1])
-        
-        return new_pi
+
+        evaluation_start = begin
+        return new_pi, evaluation_start

@@ -12,12 +12,15 @@ class Solution:
 
         self.calc_conclusion_time_and_cost(instance)
 
-    def calc_conclusion_time_and_cost(self, instance: RepairProblem):
+    def calc_conclusion_time_and_cost(self, instance: RepairProblem, start: int = 1):
         total_nodes = len(self.pi)
+        if start < 1 or start >= total_nodes:
+            raise ValueError('Start value for evaluation must be in the interval [1, total_nodes - 1]')
+
         self.conclusion_time = [0] * total_nodes
         self.acc_cost = [0] * total_nodes
 
-        for i in range(1, total_nodes):
+        for i in range(start, total_nodes):
             current = self.pi[i]
             last = self.pi[i-1]
 
