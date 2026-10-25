@@ -17,8 +17,9 @@ class Solution:
         if start < 1 or start >= total_nodes:
             raise ValueError('Start value for evaluation must be in the interval [1, total_nodes - 1]')
 
-        self.conclusion_time = [0] * total_nodes
-        self.acc_cost = [0] * total_nodes
+        if not self.conclusion_time:
+            self.conclusion_time = [0] * total_nodes
+            self.acc_cost = [0] * total_nodes
 
         for i in range(start, total_nodes):
             current = self.pi[i]
