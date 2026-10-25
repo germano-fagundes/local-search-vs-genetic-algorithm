@@ -1,29 +1,3 @@
-"""Orquestrador experimental da Tarefa T3: 3 algoritmos x 3 instâncias.
-
-Uso (a partir da raiz do repositório):
-    python scripts/experimentos_t3.py                  # roda tudo o que estiver disponível
-    python scripts/experimentos_t3.py --algoritmos SA  # só o Simulated Annealing
-    python scripts/experimentos_t3.py -j 6             # 6 processos em paralelo
-
-Cada algoritmo é um módulo com a função
-    executar(instancia: RepairProblem, orcamento: int, seed: int) -> avaliador.ResultadoBusca
-em src/. Módulos ainda inexistentes (ex.: GD/GA em desenvolvimento) são pulados com aviso.
-O GA pode devolver também extras["historico_media_populacao"] (h médio da população a
-cada 500 avaliações), gravado na coluna historico_media_populacao.
-
-Saídas em resultados/ (gravadas linha a linha, logo após cada run -- uma interrupção não perde
-o que já rodou, e uma nova chamada retoma do ponto onde parou):
-    resultados_t3.csv   algoritmo, instancia, n, run_id, seed, orcamento, avaliacoes,
-                        h_melhor_final, tempo_parede_segundos, historico_melhor_h
-                        (melhor h a cada 500 avaliações, separado por ';')
-    parametros_sa.csv   T0, Tf, alpha e dh_medio calibrados em cada run do SA
-    diagnostico_sa.csv  taxa de aceitação de pioras e T por janela de 1000 avaliações
-
-Sementes: seed = SEED_BASE + run_id, iguais para todos os algoritmos de uma mesma
-instância. Isso garante reprodutibilidade, mas não pareamento: cada algoritmo
-consome o gerador de forma diferente, e as amostras devem ser tratadas como
-independentes (Mann-Whitney).
-"""
 from __future__ import annotations
 
 import argparse

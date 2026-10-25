@@ -12,9 +12,6 @@ class OrcamentoEsgotado(Exception):
 @dataclass
 class ResultadoBusca:
     """Contrato de retorno comum a todos os algoritmos plugados no runner T3.
-
-    historico: melhor h global após 500, 1000, 1500, ... avaliações gastas.
-    extras:    diagnósticos específicos do algoritmo (ex.: taxa de aceitação do SA).
     """
     melhor_pi: list[int]
     melhor_h: int
@@ -40,11 +37,11 @@ class Avaliador:
     def restante(self) -> int:
         return self.orcamento - self.avaliacoes
 
-    def _contar(self, h: int, pi: list[int]) -> None:
+    def _contar(self, h: int, pi: list[int], exato: bool = True) -> None:
         if self.avaliacoes >= self.orcamento:
             raise OrcamentoEsgotado
         self.avaliacoes += 1
-        if h < self.melhor_h:
+        if exato and h < self.melhor_h:
             self.melhor_h = h
             self.melhor_pi = pi[:]
         if self.avaliacoes % self.passo_historico == 0:
@@ -60,19 +57,43 @@ class Avaliador:
         self._contar(h, pi)
         return h, C, H
 
-    def avaliar_incremental(self, pi_novo: list[int], start: int,
-                            C_atual: list[int], H_atual: list[int]) -> tuple[int, list[int], list[int]]:
-        """h(pi_novo) reaproveitando o prefixo [0, start-1] da solução corrente.
+    def avaliar_incremental(self, pi_novo: list[int], start: int, C_atual: list[int],
+                            H_atual: list[int], limite: float | None = None) -> int:
+ 
+        t = self.inst.displ_time
+        p = self.inst.exec_time
+        d = self.inst.due
+        w = self.inst.weight
+        c = C_atual[start - 1]
+        acc = H_atual[start - 1]
+        anterior = pi_novo[start - 1]
+        podado = False
+        if limite is None:
+            for k in range(start, len(pi_novo)):
+                j = pi_novo[k]
+                c += t[anterior][j] + p[j]
+                if c > d[j]:
+                    acc += w[j] * (c - d[j])
+                anterior = j
+        else:
+            for k in range(start, len(pi_novo)):
+                j = pi_novo[k]
+                c += t[anterior][j] + p[j]
+                if c > d[j]:
+                    acc += w[j] * (c - d[j])
+                    if acc >= limite:
+                        podado = True
+                        break
+                anterior = j
+        self._contar(acc, pi_novo, exato=not podado)
+        return acc
 
-        Retorna (h, C, H) do vizinho; as listas são novas (a solução corrente
-        não é alterada), de modo que o chamador só as adota se aceitar o movimento.
-        """
-        C = C_atual[:start] + [0] * (len(pi_novo) - start)
-        H = H_atual[:start] + [0] * (len(pi_novo) - start)
-        self._preencher(pi_novo, C, H, start)
-        h = H[-1]
-        self._contar(h, pi_novo)
-        return h, C, H
+    def vetores(self, pi: list[int], start: int, C_atual: list[int],
+                H_atual: list[int]) -> tuple[list[int], list[int]]:
+        C = C_atual[:start] + [0] * (len(pi) - start)
+        H = H_atual[:start] + [0] * (len(pi) - start)
+        self._preencher(pi, C, H, start)
+        return C, H
 
     def _preencher(self, pi: list[int], C: list[int], H: list[int], start: int) -> None:
         t = self.inst.displ_time

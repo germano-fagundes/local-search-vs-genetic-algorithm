@@ -41,8 +41,8 @@
 
 \title{\vspace{-1.2cm}\textbf{Busca Local e Algoritmos Genéticos no\\
   Sequenciamento de Manutenção de Ativos}}
-\author{Integrante 1\thanks{Departamento de Ciência da Computação -- UFMG.} \and
-        Integrante 2\footnotemark[1] \and Integrante 3\footnotemark[1]}
+\author{Bernardo Soares Diniz Lara - 2023060898  \and
+        Integrante 2 \and Integrante 3}
 \date{}
 
 \begin{document}
@@ -62,18 +62,33 @@ função objetivo e as mesmas sementes aleatórias.
 \section{Formulação do Problema e Validação (T1)}
 \label{sec:formulacao}
 % Responsável: Integrante 1
-\pendente{Integrante 1: formulação de $h(\pi)$, tensão entre proximidade ($t_{ij}$) e
-urgência ($d_j$, $w_j$) e tabela de validação T1 ($h=4366$ na identidade da instância
-pequena; $h=39$ e $h=22$ no exemplo da Figura~1 do enunciado).}
-
-Uma solução é uma permutação $\pi=(\pi_1,\dots,\pi_n)$ dos ativos, com a equipe
-partindo da base $\pi_0=0$. Os instantes de conclusão e o custo são
+Uma equipe parte da base (nó $0$) e deve executar a manutenção de $n$ ativos, um
+de cada vez, sem retornar à base ao final. O ativo $j$ fica em $(x_j,y_j)$, exige
+$p_j$ unidades de tempo de serviço, tem prazo $d_j$ e peso de criticidade $w_j$. O
+deslocamento entre $i$ e $j$ leva
+$t_{ij}=\operatorname{round}\!\big(\sqrt{(x_i-x_j)^2+(y_i-y_j)^2}\big)$, com a
+matriz pré-calculada. Uma solução é uma permutação $\pi=(\pi_1,\dots,\pi_n)$
+dos ativos, com $\pi_0=0$, $C_0=0$ e
 \begin{gather}
   C_k = C_{k-1} + t_{\pi_{k-1}\pi_k} + p_{\pi_k}, \notag\\
   h(\pi) = \sum_{k=1}^{n} w_{\pi_k}\max\{0,\; C_k - d_{\pi_k}\},
   \label{eq:h}
 \end{gather}
-com $C_0=0$ e $t_{ij}=\operatorname{round}\!\big(\lVert (x_i,y_i)-(x_j,y_j)\rVert_2\big)$.
+o atraso ponderado total, a ser minimizado. O problema opõe dois critérios.
+Visitar primeiro os ativos próximos reduz o tempo gasto em deslocamento, mas pode
+deixar para depois um ativo distante, urgente (prazo curto) e crítico (peso alto).
+Atender os urgentes primeiro, por sua vez, pode gerar rotas em zigue-zague, que
+atrasam todos os ativos seguintes. Como $C_k$ se acumula, uma decisão no início da
+rota afeta o atraso de todo o sufixo.
+
+\paragraph{Validação (T1).}
+O script \texttt{scripts/tarefa\_t1\_validacao\_h.py} avalia $h$ pela interface usada
+pelos algoritmos e por uma implementação direta independente, e reproduz os três
+valores de referência do enunciado: $h(1,4,2,3)=39$ e $h(1,4,3,2)=22$ (ótima) no
+exemplo da Figura~1, e $h=4\,366$ para a identidade $(1,\dots,12)$ na instância
+pequena. O \texttt{round} do Python arredonda empates $x{,}5$ para o par.
+Verificamos que nenhuma distância nas três instâncias cai num empate, de modo que
+$t_{ij}$ coincide com o arredondamento usual.
 
 % =============================================================================
 \section{Algoritmos e Estratégias de Busca}
@@ -82,14 +97,113 @@ com $C_0=0$ e $t_{ij}=\operatorname{round}\!\big(\lVert (x_i,y_i)-(x_j,y_j)\rVer
 \subsection{Vizinhanças e Avaliação Incremental (T2)}
 \label{sec:vizinhancas}
 % Responsável: Integrante 1
-\pendente{Integrante 1: cardinalidade de Swap ($n(n-1)/2$), Insertion ($(n-1)^2$) e
-2-opt ($n(n-1)/2$); tabela comparativa T2 e \textit{speedup} da avaliação incremental.}
+Um movimento é definido por duas posições $i\neq j$ em $\{1,\dots,n\}$. O
+\emph{Swap} troca $\pi_i$ e $\pi_j$ e gera $n(n-1)/2$ vizinhos. A \emph{Insertion}
+retira $\pi_i$ e o reinsere na posição $j$. Como mover $i$ para $i-1$ equivale a
+mover $i-1$ para $i$, ela tem $(n-1)^2$ vizinhos distintos. O \emph{2-opt} inverte o
+trecho $\pi_i,\dots,\pi_j$ e gera $n(n-1)/2$ vizinhos. Em $n=150$, são $11\,175$,
+$22\,201$ e $11\,175$ vizinhos, respectivamente; um teste automático confere essas
+contagens e que os vizinhos são distintos.
+
+\paragraph{Avaliação incremental.}
+Um movimento com menor posição alterada $k_{\min}=\min(i,j)$ não altera
+$C_1,\dots,C_{k_{\min}-1}$ nem o atraso acumulado
+$H_k=\sum_{l\le k} w_{\pi_l}\max\{0,C_l-d_{\pi_l}\}$ desse prefixo. Guardamos
+os vetores $C$ e $H$ da solução corrente, e o vizinho é avaliado percorrendo só
+o sufixo $k_{\min},\dots,n$, sem alocar vetores. Eles são reconstruídos apenas
+quando o movimento é aceito, sem custo de orçamento, pois o $h$ do vizinho já foi
+contado. No GD usamos ainda uma \emph{poda}: como $H_k$ é não decrescente, a
+varredura para assim que $H_k$ atinge o valor a ser batido. O teste automático
+compara a avaliação incremental com a completa em $9\,000$ movimentos aleatórios
+(3 vizinhanças $\times$ 3 instâncias) e verifica que a poda nunca descarta uma
+melhora.
+
+A Tabela~\ref{tab:t2-speedup} mostra o custo por avaliação, medido sobre toda a
+vizinhança de um ótimo local. O ganho é modesto, de $1{,}1$ a $1{,}5\times$. Com
+$i,j$ uniformes, $\mathbb{E}[k_{\min}]\approx n/3$, então o sufixo ainda cobre cerca
+de $2/3$ da rota, e há um custo fixo por chamada. A poda acrescenta pouco, pelo
+próprio formato do problema: no início da rota quase nenhum prazo venceu, e o
+atraso se concentra nos últimos ativos. $H_k$ só ultrapassa o limiar perto do
+fim, e a varredura raramente é interrompida cedo.
+
+\begin{table}[t]
+  \centering\small
+  \caption{Custo por avaliação de um vizinho ($\mu$s) num ótimo local: avaliação
+  completa, incremental (sufixo) e incremental com poda.}
+  \label{tab:t2-speedup}
+  \setlength{\tabcolsep}{2.4pt}
+  \resizebox{\columnwidth}{!}{\tabela{figuras/tabela_t2_speedup.tex}}
+\end{table}
+
+\begin{table}[t]
+  \centering\small
+  \caption{T2: GD (First Improvement) com reinício por vizinhança, 10 runs com o
+  orçamento $B$ do T3. $\tilde h^\star$: mediana do melhor $h$;
+  $\bar h_{\text{ót.loc.}}$: $h$ médio dos ótimos locais; ót.\,loc. e passos: por run.}
+  \label{tab:t2}
+  \setlength{\tabcolsep}{3pt}
+  \resizebox{\columnwidth}{!}{\tabela{figuras/tabela_t2_vizinhancas.tex}}
+\end{table}
+
+\paragraph{Comparação das vizinhanças (T2).}
+A Tabela~\ref{tab:t2} compara as três vizinhanças no GD com reinício. Na
+instância pequena, todas atingem o ótimo conhecido $h=1\,875$. Nas maiores, a
+Insertion é claramente superior: em $n=150$, a mediana é $80\,011$, contra $90\,544$
+(2-opt) e $147\,824$ (Swap), e seus ótimos locais também são os melhores em média. A
+explicação está na estrutura do problema. Antecipar um ativo urgente ou adiar um
+pouco urgente é exatamente um movimento de inserção, que preserva a ordem
+relativa dos demais. O Swap desloca dois ativos ao mesmo tempo, e o 2-opt inverte a
+ordem de um bloco inteiro. Essa operação é natural no caixeiro-viajante, mas
+aqui reordena prazos que já estavam bem sequenciados. A vizinhança maior da
+Insertion faz com que cada descida atinja menos ótimos locais dentro de $B$, mas
+melhores. Por isso ela foi adotada como vizinhança padrão do GD e do SA.
 
 \subsection{Greedy Descent com Random Restart}
 \label{sec:gd}
 % Responsável: Integrante 1
-\pendente{Integrante 1: variantes Best, First e Random Improvement, mecanismo de
-reinício e análise dos ótimos locais.}
+O GD parte de uma permutação aleatória e só aceita movimentos que reduzem $h$.
+Implementamos três variantes. O \emph{Best Improvement} avalia toda a vizinhança e
+move para o melhor vizinho. O \emph{First Improvement} percorre a vizinhança numa
+ordem embaralhada, sorteada a cada reinício e percorrida de forma circular, e
+move para o primeiro vizinho que melhora $h$. O \emph{sucessor aleatório} sorteia
+vizinhos com reposição e aceita o primeiro que melhora. Nas duas primeiras
+variantes, $s$ é um ótimo local quando $|V|$ vizinhos seguidos não melhoram $h$.
+Na terceira, o mesmo critério só garante otimalidade local com alta
+probabilidade. Ao atingir um ótimo local, o algoritmo o registra e reinicia de uma
+nova permutação aleatória, até esgotar $B$. A melhor solução global é mantida à
+parte. A solução corrente nunca é reavaliada: seu $h$ é conhecido, e cada
+vizinho custa uma avaliação.
+
+\begin{table}[t]
+  \centering\small
+  \caption{Variantes do GD com Insertion (orçamento e runs do T3). Passos de
+  melhoria e ótimos locais por run; aval./passo $=B/$passos;
+  $h^\star{=}1875$: runs que atingiram o ótimo conhecido.}
+  \label{tab:gd}
+  \setlength{\tabcolsep}{3pt}
+  \resizebox{\columnwidth}{!}{\tabela{figuras/tabela_gd_variantes.tex}}
+\end{table}
+
+\paragraph{Passos dentro do orçamento.}
+A Tabela~\ref{tab:gd} mostra o efeito do tamanho da vizinhança. O Best
+Improvement paga $|V|$ avaliações por passo: em $n=150$, cada varredura custa
+$22\,201$ avaliações, e $B=300\,000$ permite apenas 13 passos de melhoria a
+partir de uma solução aleatória. A primeira descida nem termina, e a mediana
+final ($822\,160$) é dez vezes pior que a do First Improvement ($80\,011$). O
+First e o aleatório dão $\approx 1\,300$ passos com $\approx 200$ avaliações por
+passo, porque aceitam a primeira melhora encontrada. O First Improvement foi o
+melhor nas instâncias média e grande e é a configuração do GD no T3.
+
+\paragraph{Ótimos locais na instância pequena.}
+Em $n=12$, as três variantes atingem o ótimo conhecido $h=1\,875$ em todas as 30
+runs. Ao longo dos reinícios, o First Improvement visitou $4\,413$ ótimos locais
+(147 por run), mas apenas \textbf{19 permutações distintas}, a mesma contagem do
+Best Improvement. A paisagem da Insertion em $n=12$ tem, portanto, poucos ótimos
+locais, e $14\%$ das descidas terminam no ótimo global. Com
+$\approx 150$ reinícios por run, a chance de nunca cair na bacia do ótimo é
+desprezível ($0{,}86^{150}\approx 10^{-10}$). O sucessor aleatório declara 391
+``ótimos'' distintos. Pelo critério probabilístico, parte deles não são ótimos
+locais de fato, e só $9\%$ das suas descidas terminam em $1\,875$.
 
 % -----------------------------------------------------------------------------
 \subsection{Simulated Annealing e Calibração Térmica}
@@ -156,8 +270,8 @@ $\overline{\Delta h}^{+}$ é medido num estado aleatório, cujas pioras são mui
 que as observadas perto de bons ótimos locais. Com $\rho=10^{-3}$, $T_f$ fica entre
 $2{,}7$ e $39{,}8$ unidades de custo (Tabela~\ref{tab:param-sa}), da ordem das
 menores pioras possíveis. Valores menores ($\rho=10^{-4}$) não
-trouxeram ganho. Também nos pilotos, Insertion superou Swap e 2-opt nas
-instâncias média e grande e foi adotada como vizinhança do SA.
+trouxeram ganho. A vizinhança é a Insertion, escolhida na T2
+(Seção~\ref{sec:vizinhancas}).
 
 \begin{table}[t]
   \centering\small
@@ -223,47 +337,37 @@ da função objetivo}. Cada chamada a $h(\cdot)$ consome exatamente uma unidade,
 seja ela uma avaliação completa da Eq.~\eqref{eq:h} ou incremental. São contadas a
 avaliação da solução inicial, as 200 avaliações de calibração do SA, cada vizinho
 examinado pelo GD (inclusive os rejeitados) e cada indivíduo avaliado pelo GA. A
-contagem é centralizada em um único objeto \texttt{Avaliador} (módulo
-\texttt{src/avaliador.py}), pelo qual passam todas as chamadas a $h$ e que levanta
+contagem é centralizada em um único objeto \texttt{Avaliador}, encapsulado pela
+interface comum \texttt{ProblemaManutencao} (\texttt{src/problema.py}), pela qual
+passam todas as chamadas a $h$ e que levanta
 uma exceção ao se tentar ultrapassar $B$. Assim, nenhum algoritmo consegue gastar
 mais do que o orçamento.
-\pendente{Integrantes 1 e 3: confirmar que GD e GA avaliam $h$ exclusivamente
-pelo \texttt{Avaliador} (nenhuma chamada direta a \texttt{Solution}).} O orçamento por avaliações é a métrica de esforço adotada na
+\pendente{Integrante 3: confirmar que o GA avalia $h$ exclusivamente pela interface
+\texttt{ProblemaManutencao}.} O orçamento por avaliações é a métrica de esforço adotada na
 comparação porque independe da máquina, da carga do sistema e da qualidade da
 implementação. Dois métodos com o mesmo $B$ examinaram o mesmo número de soluções
 candidatas. O tempo de parede (\texttt{time.perf\_counter}) é registrado à
 parte, como medida secundária. Ele capta diferenças que o orçamento esconde: nem toda
 avaliação custa o mesmo (a incremental percorre só as posições $i,\dots,n$), e as
-operações genéticas do GA têm custo próprio, que não passa por $h$. No SA, o tempo
-de parede por iteração (sorteio do vizinho, avaliação e aceitação) foi de
-$3{,}2\,\mu$s ($n=12$), $5{,}5\,\mu$s ($n=50$) e $14{,}8\,\mu$s ($n=150$). O
-crescimento é sublinear em $n$ porque parte do custo é fixo por iteração. O ganho
-da avaliação incremental, por outro lado, é modesto na nossa implementação: em
-$n=150$, uma avaliação incremental custa $13{,}4\,\mu$s, contra $15{,}3\,\mu$s da
-completa. O laço em Python percorre só o sufixo, mas as cópias dos vetores
-$C$ e $H$ ainda custam $O(n)$.
+operações genéticas do GA têm custo próprio, que não passa por $h$. No lote T3, o
+tempo de parede por avaliação foi de $2{,}6$, $5{,}7$ e $13{,}1\,\mu$s no GD e de
+$3{,}0$, $7{,}6$ e $18{,}4\,\mu$s no SA ($n=12$, $50$, $150$). O SA é mais caro
+por avaliação porque calcula $e^{-\Delta h/T}$, sorteia a aceitação e aceita
+muito mais movimentos, reconstruindo $C$ e $H$ a cada aceitação. O GD só
+reconstrói ao melhorar e ainda se beneficia da poda. Esses tempos são indicativos:
+num notebook sob carga contínua, o \emph{throttling} térmico altera o tempo de
+parede em até $\approx 30\%$ (uma run isolada do SA em $n=50$ leva $0{,}87$\,s,
+contra $1{,}14$\,s de média no lote). Por isso o orçamento em avaliações é a medida
+de esforço da comparação.
 
 \paragraph{Configurações.}
-A Tabela~\ref{tab:protocolo} resume as nove combinações (3 algoritmos $\times$ 3
-instâncias). Cada execução parte de uma permutação aleatória e grava, a cada
+As nove combinações (3 algoritmos $\times$ 3 instâncias) usam
+$B=50\,000$, $150\,000$ e $300\,000$ avaliações e 30, 30 e 10 runs
+independentes nas instâncias pequena ($n=12$), intermediária ($n=50$) e grande
+($n=150$), respectivamente. Cada execução parte de uma permutação aleatória e grava, a cada
 500 avaliações, o melhor $h$ encontrado até ali, o que dá $B/500$ pontos por curva de
 convergência. O SA grava ainda $T$ e a taxa de aceitação de pioras a cada 1\,000
 avaliações.
-
-\begin{table}[t]
-  \centering\small
-  \caption{Protocolo T3: orçamento e número de execuções independentes por instância.}
-  \label{tab:protocolo}
-  \begin{tabular}{lrrr}
-    \toprule
-    Instância & $n$ & $B$ (avaliações) & Runs \\
-    \midrule
-    Pequena        & 12  & 50\,000  & 30 \\
-    Intermediária  & 50  & 150\,000 & 30 \\
-    Grande         & 150 & 300\,000 & 10 \\
-    \bottomrule
-  \end{tabular}
-\end{table}
 
 \paragraph{Controle por sementes.}
 A run $r$ de qualquer algoritmo usa a semente $s_r = 20\,260\,000 + r$, e toda a
@@ -305,9 +409,10 @@ em um único núcleo de um Intel Core i7-1255U.
   \tabela{figuras/tabela_resultados_t3.tex}
 \end{table*}
 
-\pendente{Integrante 3: boxplots (3 painéis), $p$-valores de Mann--Whitney par a par (amostras independentes, ver Seção~\ref{sec:metodologia}),
-discussão exploração $\times$ intensificação e experimento extra do GA
-(cruzamento ligado $\times$ desligado).}
+\pendente{Integrante 3: resultados do GA na tabela e nas curvas, boxplots (3 painéis),
+$p$-valores de Mann--Whitney par a par (amostras independentes, ver
+Seção~\ref{sec:metodologia}) e experimento extra do GA (cruzamento ligado $\times$
+desligado).}
 
 \begin{figure}[t]
   \centering
@@ -332,9 +437,27 @@ $B=300\,000$, o SA examina o equivalente a apenas $\approx 13$ varreduras comple
 da vizinhança, e a curva mediana ainda desce quando o orçamento acaba. Isso sugere que, em
 $n=150$, o fator limitante é o orçamento, e não o esquema de temperatura.
 
-\pendente{Integrantes 1 e 3: comparação de escala entre GD, SA e GA, custo por
-avaliação $\times$ tempo de parede dos três métodos, quando o GA compensa e
-conclusões gerais.}
+\paragraph{GD $\times$ SA: escala e equilíbrio exploração/intensificação.}
+O ranking muda com $n$ (Tabela~\ref{tab:resultados} e
+Figura~\ref{fig:convergencia}). Em $n=12$, os dois atingem $1\,875$ em todas as
+runs. O GD chega lá com $6\%$ do orçamento, e o SA só com $43\%$, porque gasta o
+início em exploração. Em $n=50$, o SA termina ligeiramente à frente (mediana
+$16\,660$ contra $16\,990$). Em $n=150$, a vantagem do SA é clara: $69\,600$ contra
+$80\,011$, uma diferença de $13\%$, com metade da dispersão. As curvas mostram o
+mecanismo. No GD, a intensificação é a descida gulosa e a exploração vem só dos
+reinícios. Ele cai rápido no primeiro ótimo local e depois quase estaciona: em
+$n=150$, cada descida consome $\approx 230$ avaliações por passo e cabe pouco mais de
+um reinício em $B$, então a exploração por reinício praticamente desaparece. No
+SA, a exploração é a aceitação de pioras, controlada por $T$, e a curva fica acima
+da do GD durante a maior parte do orçamento. Ela só o ultrapassa após
+$\approx 80\%$ de $B$, quando $T$ já é baixo (Figura~\ref{fig:aceitacao}). Nossa hipótese é que, com
+$n!$ e $|V|=(n-1)^2$ crescendo, a paisagem passa a ter muitos ótimos locais
+medianos, e escapar deles por pequenas pioras rende mais do que recomeçar do zero.
+Em $n=12$, ao contrário, há só 19 ótimos locais (Seção~\ref{sec:gd}), e
+reiniciar é a forma mais barata de explorar.
+
+\pendente{Integrante 3: posição do GA no ranking, custo por avaliação $\times$ tempo
+de parede do GA, quando o GA compensa e conclusões gerais.}
 
 % =============================================================================
 \begin{thebibliography}{9}\small

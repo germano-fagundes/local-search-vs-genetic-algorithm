@@ -55,6 +55,7 @@ def formatar_milhar(x: float, _=None) -> str:
 # --------------------------------------------------------------------------- convergência
 def painel_convergencia(ax, resultados: list[dict], inst: str) -> None:
     orcamento = INSTANCIAS[inst][1]
+    finais = []  # (h final mediano, x final) de cada algoritmo, para rotular sem colisão
     for alg in ROTULO_ALG:
         hist = [list(map(int, l["historico_melhor_h"].split(";")))
                 for l in resultados if l["instancia"] == inst and l["algoritmo"] == alg]
@@ -64,16 +65,20 @@ def painel_convergencia(ax, resultados: list[dict], inst: str) -> None:
         x = np.arange(1, m.shape[1] + 1) * PASSO_HISTORICO
         q1, med, q3 = np.percentile(m, [25, 50, 75], axis=0)
         ax.fill_between(x, q1, q3, color=COR_ALG[alg], alpha=0.18, linewidth=0)
-        ax.plot(x, med, color=COR_ALG[alg], label=f"{ROTULO_ALG[alg]} ({len(hist)} runs)")
+        ax.plot(x, med, color=COR_ALG[alg], label=ROTULO_ALG[alg])
         pop = [list(map(float, l["historico_media_populacao"].split(";")))
                for l in resultados if l["instancia"] == inst and l["algoritmo"] == alg
                and l.get("historico_media_populacao")]
         if pop:
             ax.plot(x[:len(pop[0])], np.median(np.array(pop), axis=0), color=COR_ALG[alg],
                     linestyle=(0, (4, 2)), linewidth=1.0, label=f"{ROTULO_ALG[alg]} (média pop.)")
-        ax.annotate(f"{med[-1]:,.0f}".replace(",", "."), (x[-1], med[-1]),
-                    xytext=(-2, 4), textcoords="offset points", ha="right",
-                    fontsize=6.5, color=TINTA)
+        finais.append((med[-1], x[-1]))
+    # o maior valor final é rotulado acima da curva; os demais, abaixo (valores iguais, uma vez)
+    finais = sorted({round(h): (h, x) for h, x in finais}.values(), reverse=True)
+    for k, (h_final, x_final) in enumerate(finais):
+        ax.annotate(f"{h_final:,.0f}".replace(",", "."), (x_final, h_final),
+                    xytext=(-2, 4 if k == 0 else -4), textcoords="offset points", ha="right",
+                    va="bottom" if k == 0 else "top", fontsize=6.5, color=TINTA)
     ax.set_yscale("log")
     ax.set_xlim(0, orcamento)
     ax.xaxis.set_major_formatter(formatar_milhar)

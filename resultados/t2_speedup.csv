@@ -1,0 +1,10 @@
+instancia,operador,vizinhos,us_completa,us_incremental,us_incremental_poda
+pequena,swap,66,1.580,1.319,1.249
+pequena,insertion,121,1.570,1.345,1.226
+pequena,2opt,66,1.593,1.378,1.208
+media,swap,1225,5.229,3.884,3.539
+media,insertion,2401,4.852,3.771,4.114
+media,2opt,1225,4.872,3.651,3.441
+grande,swap,11175,14.189,10.285,9.933
+grande,insertion,22201,13.029,9.810,9.466
+grande,2opt,11175,13.506,11.857,9.981

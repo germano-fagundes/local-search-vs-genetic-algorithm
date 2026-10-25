@@ -5,3 +5,4 @@ __pycache__/
 *.fls
 *.fdb_latexmk
 *.synctex.gz
+resultados/*_log.txt
