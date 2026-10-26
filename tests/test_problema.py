@@ -7,6 +7,7 @@ RAIZ = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(RAIZ / "src"))
 
 from avaliador import OrcamentoEsgotado  # noqa: E402
+from genetic_algorithm import genetic_algorithm  # noqa: E402
 from greedy_descent import VARIANTES, greedy_descent  # noqa: E402
 from problema import ProblemaManutencao  # noqa: E402
 from repair_problem import RepairProblem  # noqa: E402
@@ -101,6 +102,18 @@ def test_gd_respeita_orcamento_e_acha_otimo_na_pequena():
         assert r.avaliacoes == 20_000
         assert r.melhor_h == Solution(r.melhor_pi, inst).final_cost
         assert r.melhor_h == 1875
+
+
+def test_ga_respeita_orcamento_e_registra_historico():
+    inst = instancia("manutencao_pequena.txt")
+    r = genetic_algorithm(inst, 5_000, seed=0, passo_historico=500)
+    assert r.avaliacoes == 5_000
+    assert r.melhor_pi[0] == 0 and sorted(r.melhor_pi[1:]) == list(range(1, inst.n_actives + 1))
+    assert r.melhor_h == Solution(r.melhor_pi, inst).final_cost
+    assert len(r.historico) == 10
+    assert len(r.extras["historico_media_populacao"]) == 10
+    assert len(r.extras["historico_diversidade"]) == 10
+    assert all(0.0 < d <= 1.0 for d in r.extras["historico_diversidade"])
 
 
 if __name__ == "__main__":

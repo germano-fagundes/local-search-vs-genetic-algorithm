@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import argparse
 import csv
+import math
 import os
-from collections import defaultdict
+from collections import Counter, defaultdict
 from statistics import mean, median, stdev
 
 import matplotlib
@@ -73,12 +74,13 @@ def painel_convergencia(ax, resultados: list[dict], inst: str) -> None:
             ax.plot(x[:len(pop[0])], np.median(np.array(pop), axis=0), color=COR_ALG[alg],
                     linestyle=(0, (4, 2)), linewidth=1.0, label=f"{ROTULO_ALG[alg]} (média pop.)")
         finais.append((med[-1], x[-1]))
-    # o maior valor final é rotulado acima da curva; os demais, abaixo (valores iguais, uma vez)
+    # o menor valor final é rotulado abaixo da curva; os maiores, acima (sem sobreposição)
     finais = sorted({round(h): (h, x) for h, x in finais}.values(), reverse=True)
     for k, (h_final, x_final) in enumerate(finais):
+        abaixo = (k == len(finais) - 1) and len(finais) > 1
         ax.annotate(f"{h_final:,.0f}".replace(",", "."), (x_final, h_final),
-                    xytext=(-2, 4 if k == 0 else -4), textcoords="offset points", ha="right",
-                    va="bottom" if k == 0 else "top", fontsize=6.5, color=TINTA)
+                    xytext=(-2, -4 if abaixo else 4), textcoords="offset points", ha="right",
+                    va="top" if abaixo else "bottom", fontsize=6.5, color=TINTA)
     ax.set_yscale("log")
     ax.set_xlim(0, orcamento)
     ax.xaxis.set_major_formatter(formatar_milhar)
@@ -92,7 +94,7 @@ def figuras_convergencia(resultados: list[dict], saida: str) -> None:
         painel_convergencia(ax, resultados, inst)
     eixos[0].set_ylabel("Melhor $h$ (mediana, escala log)")
     handles, labels = eixos[0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc="upper center", ncol=3, frameon=False,
+    fig.legend(handles, labels, loc="upper center", ncol=len(labels), frameon=False,
                bbox_to_anchor=(0.5, 1.08))
     fig.tight_layout()
     fig.savefig(os.path.join(saida, "convergencia.pdf"))
@@ -193,6 +195,110 @@ def tabela_resultados(resultados: list[dict], saida: str) -> None:
         f.write("\n".join(tex) + "\n")
 
 
+# --------------------------------------------------------------------------- boxplots e Mann-Whitney
+def figura_boxplots(resultados: list[dict], saida: str) -> None:
+    fig, eixos = plt.subplots(1, 3, figsize=(7.0, 2.15))
+    algs = list(ROTULO_ALG)
+    for ax, inst in zip(eixos, INSTANCIAS):
+        dados = [[int(l["h_melhor_final"]) for l in resultados
+                  if l["instancia"] == inst and l["algoritmo"] == a] for a in algs]
+        pos = np.arange(1, len(algs) + 1)
+        bp = ax.boxplot(dados, positions=pos, widths=0.46, patch_artist=True,
+                        showfliers=False, medianprops={"color": TINTA, "linewidth": 1.3},
+                        boxprops={"linewidth": 0.9}, whiskerprops={"linewidth": 0.9, "color": TINTA_SEC},
+                        capprops={"linewidth": 0.9, "color": TINTA_SEC})
+        for patch, a in zip(bp["boxes"], algs):
+            patch.set_facecolor(COR_ALG[a])
+            patch.set_alpha(0.32)
+            patch.set_edgecolor(COR_ALG[a])
+        rng = np.random.default_rng(42)
+        for i, (vals, a) in enumerate(zip(dados, algs), start=1):
+            if vals:
+                jitter = rng.uniform(-0.12, 0.12, size=len(vals))
+                ax.scatter(np.full(len(vals), i) + jitter, vals, s=9, color=COR_ALG[a],
+                           alpha=0.75, zorder=3, linewidths=0)
+        ax.set_xticks(pos)
+        ax.set_xticklabels(algs)
+        ax.set_title(ROTULO_INST[inst], color=TINTA)
+        ax.yaxis.set_major_formatter(formatar_milhar)
+    eixos[0].set_ylabel("Melhor $h$ final")
+    fig.tight_layout()
+    fig.savefig(os.path.join(saida, "boxplots.pdf"))
+    plt.close(fig)
+
+
+def mann_whitney_u(x: list[float], y: list[float]) -> tuple[float, float]:
+    """Teste U de Mann-Whitney bicaudal com correção de empates e de continuidade."""
+    n1, n2 = len(x), len(y)
+    n = n1 + n2
+    combinado = sorted((v, i) for i, v in enumerate(list(x) + list(y)))
+    ranks = [0.0] * n
+    pos = 0
+    while pos < n:
+        fim = pos
+        while fim < n and combinado[fim][0] == combinado[pos][0]:
+            fim += 1
+        r_medio = (pos + 1 + fim) / 2.0
+        for k in range(pos, fim):
+            ranks[combinado[k][1]] = r_medio
+        pos = fim
+    r1 = sum(ranks[:n1])
+    u1 = r1 - n1 * (n1 + 1) / 2.0
+    u2 = n1 * n2 - u1
+    u = min(u1, u2)
+    mu = n1 * n2 / 2.0
+    contagens = Counter(v for v, _ in combinado)
+    soma_empates = sum(t ** 3 - t for t in contagens.values())
+    var = (n1 * n2 / 12.0) * ((n + 1) - soma_empates / (n * (n - 1)))
+    if var <= 0:
+        return u, 1.0
+    z = max(0.0, abs(u - mu) - 0.5) / math.sqrt(var)
+    p = math.erfc(z / math.sqrt(2.0))
+    return u1, min(1.0, p)
+
+
+def formatar_p(p: float) -> str:
+    if p >= 0.01:
+        return f"{p:.2f}".replace(".", "{,}")
+    exp = int(math.floor(math.log10(p))) if p > 0 else -16
+    mant = p / (10 ** exp)
+    return f"{mant:.1f}".replace(".", "{,}") + f"\\times 10^{{{exp}}}"
+
+
+def tabela_mannwhitney(resultados: list[dict], saida: str, entrada: str) -> None:
+    pares = [("GD", "SA"), ("SA", "GA"), ("GD", "GA")]
+    linhas_csv = []
+    linhas_tex = []
+    for inst in INSTANCIAS:
+        amostras = {a: [int(l["h_melhor_final"]) for l in resultados
+                        if l["instancia"] == inst and l["algoritmo"] == a]
+                    for a in ROTULO_ALG}
+        if not all(amostras.values()):
+            continue
+        cels = []
+        for a1, a2 in pares:
+            u, p = mann_whitney_u(amostras[a1], amostras[a2])
+            vencedor = "empate" if p >= 0.05 else (a1 if median(amostras[a1]) < median(amostras[a2]) else a2)
+            linhas_csv.append({"instancia": inst, "par": f"{a1}_vs_{a2}",
+                               "U": f"{u:.1f}", "p_valor": f"{p:.6e}", "vencedor_5pct": vencedor})
+            cels.append(f"${formatar_p(p)}$ ({vencedor})")
+        linhas_tex.append(f"{ROTULO_INST[inst].split(' ')[0]} & " + " & ".join(cels) + " \\\\")
+
+    if linhas_csv:
+        with open(os.path.join(entrada, "testes_hipotese.csv"), "w", newline="", encoding="utf-8") as f:
+            w = csv.DictWriter(f, fieldnames=list(linhas_csv[0]))
+            w.writeheader()
+            w.writerows(linhas_csv)
+        tex = [
+            "% gerado por plot_graficos.py -- não editar à mão",
+            "\\begin{tabular}{lccc}", "\\toprule",
+            "Instância & GD $\\times$ SA & SA $\\times$ GA & GD $\\times$ GA \\\\",
+            "\\midrule", *linhas_tex, "\\bottomrule", "\\end{tabular}",
+        ]
+        with open(os.path.join(saida, "tabela_mannwhitney.tex"), "w", encoding="utf-8") as f:
+            f.write("\n".join(tex) + "\n")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="Gera figuras e tabelas LaTeX a partir dos CSVs do T3.")
     ap.add_argument("--entrada", default=str(RAIZ / "resultados"), help="diretório dos CSVs do T3")
@@ -211,8 +317,10 @@ def main() -> None:
 
     figuras_convergencia(resultados, args.saida)
     figura_aceitacao(diagnostico, args.saida)
+    figura_boxplots(resultados, args.saida)
     tabela_parametros(parametros, resultados, args.saida)
     tabela_resultados(resultados, args.saida)
+    tabela_mannwhitney(resultados, args.saida, args.entrada)
     print(f"Figuras e tabelas gravadas em {args.saida}/")
 
 

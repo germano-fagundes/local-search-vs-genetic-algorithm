@@ -1,0 +1,10 @@
+instancia,par,U,p_valor,vencedor_5pct
+pequena,GD_vs_SA,450.0,1.000000e+00,empate
+pequena,SA_vs_GA,135.0,3.724584e-08,SA
+pequena,GD_vs_GA,135.0,3.724584e-08,GD
+media,GD_vs_SA,574.0,6.782682e-02,empate
+media,SA_vs_GA,100.0,2.372261e-07,SA
+media,GD_vs_GA,148.5,8.577610e-06,GD
+grande,GD_vs_SA,96.0,5.828399e-04,SA
+grande,SA_vs_GA,0.0,1.826718e-04,SA
+grande,GD_vs_GA,3.0,4.396388e-04,GD

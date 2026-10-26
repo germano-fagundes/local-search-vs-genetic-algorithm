@@ -13,7 +13,7 @@
 \usepackage[utf8]{inputenc}
 \usepackage[brazilian]{babel}
 \usepackage{newtxtext,newtxmath}            % Times, como no modelo SBC
-\usepackage[a4paper,top=2.5cm,bottom=2.5cm,left=2cm,right=2cm,columnsep=0.6cm]{geometry}
+\usepackage[a4paper,top=2.0cm,bottom=2.0cm,left=1.9cm,right=1.9cm,columnsep=0.55cm]{geometry}
 \usepackage{amsmath}
 \usepackage{graphicx}
 \usepackage{booktabs}
@@ -24,9 +24,19 @@
 \usepackage[hidelinks]{hyperref}
 
 \captionsetup{font=small,labelfont=bf,labelsep=period}
-\setlength{\abovecaptionskip}{4pt}
-\setlength{\textfloatsep}{8pt plus 2pt minus 2pt}
-\setlength{\floatsep}{6pt plus 2pt minus 2pt}
+\setlength{\abovecaptionskip}{3pt}
+\setlength{\textfloatsep}{6pt plus 2pt minus 2pt}
+\setlength{\dbltextfloatsep}{6pt plus 2pt minus 2pt}
+\setlength{\floatsep}{5pt plus 2pt minus 2pt}
+\setlength{\dblfloatsep}{5pt plus 2pt minus 2pt}
+\makeatletter
+\renewcommand\section{\@startsection {section}{1}{\z@}%
+  {-1.8ex \@plus -0.5ex \@minus -.2ex}{0.9ex \@plus.2ex}{\normalfont\large\bfseries}}
+\renewcommand\subsection{\@startsection{subsection}{2}{\z@}%
+  {-1.4ex\@plus -0.4ex \@minus -.2ex}{0.6ex \@plus .2ex}{\normalfont\normalsize\bfseries}}
+\renewcommand\paragraph{\@startsection{paragraph}{4}{\z@}%
+  {0.9ex \@plus 0.3ex \@minus .2ex}{-0.8em}{\normalfont\normalsize\bfseries}}
+\makeatother
 \raggedbottom
 
 % Marcador visível para trechos que ainda dependem de outro integrante.
@@ -39,10 +49,13 @@
   \texttt{\detokenize{#1}}\\ ainda não gerada}}}}
 \newcommand{\tabela}[1]{\IfFileExists{#1}{\input{#1}}{\pendente{\texttt{\detokenize{#1}} ainda não gerada.}}}
 
-\title{\vspace{-1.2cm}\textbf{Busca Local e Algoritmos Genéticos no\\
-  Sequenciamento de Manutenção de Ativos}}
-\author{Bernardo Soares Diniz Lara - 2023060898  \and
-        Integrante 2 \and Integrante 3}
+\title{\vspace{-1.2cm}\textbf{Trabalho Prático 2: Busca Local e Algoritmo Genético}}
+\author{%
+  \begin{tabular}{@{}c@{\hspace{1.4cm}}c@{\hspace{1.4cm}}c@{}}
+    Artur Filardi Victoriano & Bernardo Soares Diniz Lara & Germano Marques Cipriano Fagundes \\
+    {\small 2023060707} & {\small 2023060898} & {\small 2023060839}
+  \end{tabular}%
+}
 \date{}
 
 \begin{document}
@@ -54,8 +67,12 @@ Comparamos três metaheurísticas -- \textit{Greedy Descent} com reinício aleat
 \textit{Simulated Annealing} (SA) e Algoritmo Genético (GA) -- no problema de sequenciar
 $n$ manutenções para minimizar o atraso ponderado total, em instâncias com
 $n \in \{12, 50, 150\}$. Todos os métodos recebem o mesmo orçamento de avaliações da
-função objetivo e as mesmas sementes aleatórias.
-\pendente{Integrante 3: uma frase com o resultado principal da comparação.}
+função objetivo e as mesmas sementes aleatórias. Em $n=12$, GD e SA atingem o ótimo
+global ($1\,875$) em todas as execuções; com o aumento da escala ($n=50$ e $150$), o SA
+passa a superar o GD ($p=5{,}8\times 10^{-4}$ em $n=150$, chegando a superar o valor de
+referência do enunciado em $n=50$), enquanto ambos superam significativamente o GA, que
+sofre perda rápida de diversidade e baixa eficácia do cruzamento OX diante do
+acoplamento temporal dos prazos.
 \end{abstract}
 
 % =============================================================================
@@ -210,6 +227,15 @@ locais de fato, e só $9\%$ das suas descidas terminam em $1\,875$.
 \label{sec:sa}
 % Responsável: Integrante 2
 
+\begin{figure*}[t]
+  \centering
+  \figura{figuras/convergencia.pdf}{\textwidth}
+  \caption{Curvas de convergência: mediana do melhor $h$ (escala log) em função das
+  avaliações gastas, com faixa interquartil, para as três instâncias. Tracejado:
+  mediana do $h$ médio da população do GA.}
+  \label{fig:convergencia}
+\end{figure*}
+
 O \textit{Simulated Annealing}~\cite{kirkpatrick1983,metropolis1953} é uma busca
 local estocástica que escapa de ótimos locais ao aceitar, com probabilidade
 controlada, movimentos que pioram a solução. A cada passo sorteia-se uniformemente um par ordenado
@@ -314,22 +340,38 @@ início (têmpera rápida demais, que congela a busca num ótimo local ruim).
 \subsection{Algoritmo Genético e Operadores de Permutação}
 \label{sec:ga}
 % Responsável: Integrante 3
-\pendente{Integrante 3: representação, seleção (torneio $k=3$), cruzamento OX/PMX com
-exemplo numérico passo a passo, mutação, elitismo e parâmetros ($N$, $P_c$, $P_m$).}
+No Algoritmo Genético (\texttt{src/genetic\_algorithm.py}), cada cromossomo é uma
+permutação completa $\pi=(\pi_1,\dots,\pi_n)$ precedida pela base $\pi_0=0$. A
+população inicial de tamanho $N=100$ é gerada por amostragem uniforme. Como o
+problema é de minimização de $h(\pi)$, convertemos o custo na aptidão estritamente
+decrescente $f(\pi) = 1/(1+h(\pi))$. A seleção de pais usa \textbf{torneio de
+tamanho $k=3$} (garantindo dois pais de índices distintos): sorteiam-se 3 indivíduos
+e escolhe-se o de maior $f(\pi)$, o que equivale diretamente a escolher o de menor
+custo $h(\pi)$ (o módulo também suporta roleta proporcional a $f(\pi)$). A cada
+geração aplicamos \textbf{elitismo} copiando os $E=2$ melhores indivíduos sem
+reavaliar $h$, e geramos os $N-E=98$ filhos restantes.
+
+\paragraph{Cruzamento OX, mutação e diversidade.}
+Com probabilidade $P_c=0{,}85$, dois pais geram um filho pelo \emph{Order Crossover}
+(OX), que preserva a validade da permutação sem duplicar ativos; caso contrário, o
+filho copia o primeiro pai. Por exemplo, para $n=6$, $\text{Pai}_1=(1,4,3,5,2,6)$,
+$\text{Pai}_2=(6,3,1,2,4,5)$ e corte nas posições $2$ a $4$: (i)~copia-se o bloco
+$[4,3,5]$ de $\text{Pai}_1$, formando $(\_,4,3,5,\_,\_)$; (ii)~percorre-se
+$\text{Pai}_2$ circularmente a partir da posição $5$, filtrando os ativos ausentes na
+ordem em que ocorrem: $[4,5,6,3,1,2]\setminus\{4,3,5\}=[6,1,2]$; (iii)~preenchem-se
+as posições $5,6,1$, resultando no filho válido $(2,4,3,5,6,1)$. Em seguida, com
+probabilidade $P_m=0{,}20$, aplica-se uma mutação por \emph{Insertion} (vizinhança
+escolhida na T2). O orçamento $B$ corresponde a $509$, $1\,529$ e $3\,060$ gerações
+completas ($n=12,50,150$). Monitorando a fração de permutações distintas a cada
+geração, diagnostica-se convergência prematura: sob torneio $k=3$, a diversidade cai
+de $100\%$ para $\approx 20\%$ já em $10\%$ do orçamento ($\approx 50$ gerações) em
+$n=12$ e em $50\%$--$60\%$ do orçamento em $n=50$ e $150$, estabilizando em
+$18\%$--$24\%$ (exatamente a fração de filhos mutados por geração, $P_m=0{,}20$).
 
 % =============================================================================
 \section{Metodologia Experimental e Protocolo T3}
 \label{sec:metodologia}
 % Responsável: Integrante 2
-
-\begin{figure*}[t]
-  \centering
-  \figura{figuras/convergencia.pdf}{\textwidth}
-  \caption{Curvas de convergência: mediana do melhor $h$ (escala log) em função das
-  avaliações gastas, com faixa interquartil, para as três instâncias. Tracejado:
-  mediana do $h$ médio da população do GA.}
-  \label{fig:convergencia}
-\end{figure*}
 
 \paragraph{Orçamento por avaliações, não por tempo.}
 O critério de parada de todos os algoritmos é um orçamento $B$ de \emph{avaliações
@@ -341,20 +383,21 @@ contagem é centralizada em um único objeto \texttt{Avaliador}, encapsulado pel
 interface comum \texttt{ProblemaManutencao} (\texttt{src/problema.py}), pela qual
 passam todas as chamadas a $h$ e que levanta
 uma exceção ao se tentar ultrapassar $B$. Assim, nenhum algoritmo consegue gastar
-mais do que o orçamento.
-\pendente{Integrante 3: confirmar que o GA avalia $h$ exclusivamente pela interface
-\texttt{ProblemaManutencao}.} O orçamento por avaliações é a métrica de esforço adotada na
+mais do que o orçamento. O orçamento por avaliações é a métrica de esforço adotada na
 comparação porque independe da máquina, da carga do sistema e da qualidade da
 implementação. Dois métodos com o mesmo $B$ examinaram o mesmo número de soluções
 candidatas. O tempo de parede (\texttt{time.perf\_counter}) é registrado à
 parte, como medida secundária. Ele capta diferenças que o orçamento esconde: nem toda
 avaliação custa o mesmo (a incremental percorre só as posições $i,\dots,n$), e as
 operações genéticas do GA têm custo próprio, que não passa por $h$. No lote T3, o
-tempo de parede por avaliação foi de $2{,}6$, $5{,}7$ e $13{,}1\,\mu$s no GD e de
-$3{,}0$, $7{,}6$ e $18{,}4\,\mu$s no SA ($n=12$, $50$, $150$). O SA é mais caro
-por avaliação porque calcula $e^{-\Delta h/T}$, sorteia a aceitação e aceita
-muito mais movimentos, reconstruindo $C$ e $H$ a cada aceitação. O GD só
-reconstrói ao melhorar e ainda se beneficia da poda. Esses tempos são indicativos:
+tempo de parede por avaliação foi de $2{,}6$, $5{,}7$ e $13{,}1\,\mu$s no GD, de
+$3{,}0$, $7{,}6$ e $18{,}4\,\mu$s no SA e de $8{,}0$, $14{,}3$ e $31{,}4\,\mu$s no
+GA ($n=12$, $50$, $150$). O SA é mais caro por avaliação que o GD porque calcula
+$e^{-\Delta h/T}$, sorteia a aceitação e reconstrói $C$ e $H$ a cada movimento aceito,
+enquanto o GD só reconstrói ao melhorar e usa poda. Já o GA é o mais caro por
+avaliação ($2{,}4\times$ a $3{,}1\times$ o GD) porque todo filho requer avaliação
+completa desde a posição $1$, somada ao custo de seleção por torneio, cruzamento OX e
+ordenação da elite. Esses tempos são indicativos:
 num notebook sob carga contínua, o \emph{throttling} térmico altera o tempo de
 parede em até $\approx 30\%$ (uma run isolada do SA em $n=50$ leva $0{,}87$\,s,
 contra $1{,}14$\,s de média no lote). Por isso o orçamento em avaliações é a medida
@@ -404,15 +447,11 @@ em um único núcleo de um Intel Core i7-1255U.
   \centering\small
   \caption{Resumo do melhor $h$ final por combinação algoritmo--instância, gap
   relativo $(\bar h-1875)/1875$ na instância pequena, orçamento $B$ e tempo médio de
-  parede $\bar t$ por run.}
+  parede $\bar t$ por run. Valores de referência do enunciado: $1\,875$ ($n=12$),
+  $16\,332$ ($n=50$) e $60\,417$ ($n=150$).}
   \label{tab:resultados}
   \tabela{figuras/tabela_resultados_t3.tex}
 \end{table*}
-
-\pendente{Integrante 3: resultados do GA na tabela e nas curvas, boxplots (3 painéis),
-$p$-valores de Mann--Whitney par a par (amostras independentes, ver
-Seção~\ref{sec:metodologia}) e experimento extra do GA (cruzamento ligado $\times$
-desligado).}
 
 \begin{figure}[t]
   \centering
@@ -420,6 +459,34 @@ desligado).}
   \caption{Distribuição do melhor $h$ final por algoritmo e instância.}
   \label{fig:boxplots}
 \end{figure}
+
+\begin{table}[t]
+  \centering\small
+  \caption{Experimento adicional do GA (10 runs): cruzamento OX ligado ($P_c=0{,}85$)
+  $\times$ desligado ($P_c=0$), $p$-valor de Mann--Whitney, fração de cruzamentos em
+  que o filho supera ambos os pais ou ao menos um pai, e diversidade final.}
+  \label{tab:ga-exp}
+  \setlength{\tabcolsep}{2.5pt}
+  \resizebox{\columnwidth}{!}{\tabela{figuras/tabela_ga_experimento.tex}}
+\end{table}
+
+A Tabela~\ref{tab:resultados} e os boxplots da Figura~\ref{fig:boxplots} sintetizam as
+9 combinações do protocolo T3. Na instância pequena ($n=12$), tanto o GD quanto o SA
+encontram o ótimo exato $h^\star=1\,875$ em $30/30$ runs ($\text{gap}=0\%$, $p=1{,}00$
+no teste bicaudal de Mann--Whitney). O GA atinge $1\,875$ em apenas $9/30$ runs
+($30\%$) e fica retido nos demais ótimos locais da Insertion ($h=1\,937$ em $13/30$
+runs e $h=2\,230$ em $7/30$ runs, estagnando em mediana após $8\%$ de $B$), fechando
+com mediana $1\,937$, média $1\,999$ ($\text{gap}=6{,}63\%$) e diferença
+estatisticamente significativa frente a GD e SA ($p=3{,}7\times 10^{-8}$). Na
+instância intermediária ($n=50$), o SA obtém mediana $16\,660$ contra $16\,990$ do GD
+($p=0{,}07$, empate estatístico ao nível de $5\%$) e \textbf{alcança mínimo
+$h^\star_{\min}=16\,179$, superando o melhor valor de referência do enunciado
+($16\,332$)}; ambos superam amplamente o GA (mediana $20\,254$, $p=2{,}4\times
+10^{-7}$ para SA$\times$GA e $p=8{,}6\times 10^{-6}$ para GD$\times$GA). Na instância
+grande ($n=150$), o SA assume liderança isolada e estatisticamente significativa sobre
+o GD (mediana $69\,600$ contra $80\,011$, $p=5{,}8\times 10^{-4}$, com mínimo $66\,238$
+próximo à referência $60\,417$), enquanto o GA fica em terceiro lugar ($100\,182$,
+$p=1{,}8\times 10^{-4}$ contra SA e $p=4{,}4\times 10^{-4}$ contra GD).
 
 % =============================================================================
 \section{Discussão: Escala, Esforço Computacional e Conclusões}
@@ -437,27 +504,43 @@ $B=300\,000$, o SA examina o equivalente a apenas $\approx 13$ varreduras comple
 da vizinhança, e a curva mediana ainda desce quando o orçamento acaba. Isso sugere que, em
 $n=150$, o fator limitante é o orçamento, e não o esquema de temperatura.
 
-\paragraph{GD $\times$ SA: escala e equilíbrio exploração/intensificação.}
+\paragraph{GD $\times$ SA $\times$ GA: ótimos locais, escala e exploração/intensificação.}
 O ranking muda com $n$ (Tabela~\ref{tab:resultados} e
-Figura~\ref{fig:convergencia}). Em $n=12$, os dois atingem $1\,875$ em todas as
-runs. O GD chega lá com $6\%$ do orçamento, e o SA só com $43\%$, porque gasta o
-início em exploração. Em $n=50$, o SA termina ligeiramente à frente (mediana
+Figura~\ref{fig:convergencia}). Em $n=12$, a paisagem da Insertion possui apenas 19
+ótimos locais distintos (Seção~\ref{sec:gd}): o GD (por executar $\approx 147$
+reinícios independentes por run) e o SA (por escapar de vales rasos via temperatura)
+alcançam o ótimo global $h^\star=1\,875$ em $30/30$ execuções ($6\%$ e $43\%$ de $B$,
+respectivamente), enquanto o GA só o atinge em $9/30$ execuções porque sua população
+colapsa precocemente sobre um único ótimo local ($1\,937$ ou $2\,230$) sem mecanismo de
+reinício. Em $n=50$, o SA termina ligeiramente à frente do GD (mediana
 $16\,660$ contra $16\,990$). Em $n=150$, a vantagem do SA é clara: $69\,600$ contra
 $80\,011$, uma diferença de $13\%$, com metade da dispersão. As curvas mostram o
 mecanismo. No GD, a intensificação é a descida gulosa e a exploração vem só dos
-reinícios. Ele cai rápido no primeiro ótimo local e depois quase estaciona: em
-$n=150$, cada descida consome $\approx 230$ avaliações por passo e cabe pouco mais de
-um reinício em $B$, então a exploração por reinício praticamente desaparece. No
-SA, a exploração é a aceitação de pioras, controlada por $T$, e a curva fica acima
-da do GD durante a maior parte do orçamento. Ela só o ultrapassa após
-$\approx 80\%$ de $B$, quando $T$ já é baixo (Figura~\ref{fig:aceitacao}). Nossa hipótese é que, com
-$n!$ e $|V|=(n-1)^2$ crescendo, a paisagem passa a ter muitos ótimos locais
-medianos, e escapar deles por pequenas pioras rende mais do que recomeçar do zero.
-Em $n=12$, ao contrário, há só 19 ótimos locais (Seção~\ref{sec:gd}), e
-reiniciar é a forma mais barata de explorar.
+reinícios: em $n=150$, cada descida consome $\approx 230$ avaliações por passo e cabe
+pouco mais de um reinício em $B$, extinguindo a exploração por reinício. No
+SA, a exploração é a aceitação de pioras controlada por $T$, que escapa de ótimos
+locais medianos sem descartar o progresso acumulado; em $n=12$, ao contrário, reiniciar
+é a forma mais barata de explorar os 19 ótimos locais.
 
-\pendente{Integrante 3: posição do GA no ranking, custo por avaliação $\times$ tempo
-de parede do GA, quando o GA compensa e conclusões gerais.}
+\paragraph{Quando o GA compensa e experimento sobre recombinação.}
+No GA, a exploração cabe à diversidade populacional e à mutação ($P_m=0{,}20$), e a
+intensificação cabe à seleção por torneio e ao cruzamento OX. Nas três instâncias, a
+curva tracejada da média da população (Figura~\ref{fig:convergencia}) aproxima-se
+rapidamente da curva do melhor indivíduo, refletindo a queda da fração de indivíduos
+únicos para $\approx 20\%$ (Tabela~\ref{tab:ga-exp}). Nossa hipótese para o desempenho
+inferior do GA é que o operador OX, embora preserve a ordem relativa, \textbf{quebra os
+instantes acumulados $C_k$}: como o atraso $\max\{0,C_k-d_{\pi_k}\}$ depende da soma de
+todos os tempos anteriores, um bloco de ativos bem sequenciado em $\text{Pai}_1$, ao
+ser deslocado pelo prefixo herdado de $\text{Pai}_2$, passa a violar prazos. Para
+testar essa hipótese diretamente (\texttt{scripts/tarefa\_ga\_experimento.py}),
+comparamos o GA padrão ($P_c=0{,}85$) com o mesmo GA sem cruzamento ($P_c=0$, apenas
+seleção e mutação). A Tabela~\ref{tab:ga-exp} confirma a hipótese: desligar o OX não
+altera significativamente o resultado em nenhuma instância ($p\ge 0{,}52$), e menos de
+$1\%$ dos filhos gerados por OX superam ambos os pais. Conclui-se que, sob orçamento
+fixo e forte acoplamento temporal no prefixo, buscas locais baseadas na vizinhança
+Insertion com avaliação incremental (\textbf{GD} em pequena escala e \textbf{SA} em
+média e grande escala) são mais eficazes e até $2{,}8\times$ mais rápidas em tempo de
+parede do que o GA puramente geracional.
 
 % =============================================================================
 \begin{thebibliography}{9}\small
